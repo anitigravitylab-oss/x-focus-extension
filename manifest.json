@@ -4,10 +4,17 @@
   "version": "0.1.0",
   "description": "x.comのタイムラインから、キーワード条件に合わない投稿を非表示にします。",
   "permissions": ["storage"],
-  "host_permissions": ["https://x.com/*", "https://twitter.com/*"],
+  "host_permissions": [
+    "https://x.com/*",
+    "https://twitter.com/*",
+    "https://generativelanguage.googleapis.com/*"
+  ],
   "action": {
     "default_title": "Xフォーカスフィルター",
     "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
   },
   "content_scripts": [
     {

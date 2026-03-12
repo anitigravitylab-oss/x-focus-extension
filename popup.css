@@ -33,6 +33,7 @@ h1 {
 }
 
 select,
+input,
 textarea,
 button {
   width: 100%;
@@ -42,6 +43,7 @@ button {
 }
 
 select,
+input,
 textarea {
   background: #182028;
   color: #f4f7fb;
@@ -65,4 +67,10 @@ button {
   min-height: 20px;
   margin: 10px 0 0;
   color: #9ab0c7;
+}
+
+.help {
+  margin: 10px 0 0;
+  color: #9ab0c7;
+  font-size: 12px;
 }

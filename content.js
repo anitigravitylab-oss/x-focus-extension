@@ -1,5 +1,9 @@
 const DEFAULT_SETTINGS = {
   enabled: true,
+  aiEnabled: false,
+  geminiApiKey: '',
+  interestPrompt: '',
+  aiModel: 'gemini-2.5-flash',
   mode: 'include',
   keywords: ['ai', 'llm', 'startup'],
   hidePromoted: true,
@@ -19,6 +23,10 @@ const CONTROL_LABELS = [
 
 let currentSettings = { ...DEFAULT_SETTINGS };
 let observer = null;
+let aiFlushTimer = null;
+let aiRequestInFlight = false;
+const aiCache = new Map();
+const pendingAiItems = new Map();
 
 function normalizeKeywordList(rawKeywords) {
   return [...new Set(
@@ -31,6 +39,10 @@ function normalizeKeywordList(rawKeywords) {
 function normalizeSettings(settings) {
   return {
     enabled: settings?.enabled ?? DEFAULT_SETTINGS.enabled,
+    aiEnabled: settings?.aiEnabled ?? DEFAULT_SETTINGS.aiEnabled,
+    geminiApiKey: String(settings?.geminiApiKey ?? DEFAULT_SETTINGS.geminiApiKey).trim(),
+    interestPrompt: String(settings?.interestPrompt ?? DEFAULT_SETTINGS.interestPrompt).trim(),
+    aiModel: String(settings?.aiModel ?? DEFAULT_SETTINGS.aiModel).trim() || DEFAULT_SETTINGS.aiModel,
     mode: settings?.mode === 'exclude' ? 'exclude' : 'include',
     keywords: normalizeKeywordList(settings?.keywords ?? DEFAULT_SETTINGS.keywords),
     hidePromoted: settings?.hidePromoted ?? DEFAULT_SETTINGS.hidePromoted,
@@ -78,10 +90,14 @@ function getTweetArticleFromCell(cell) {
 }
 
 function getTweetText(article) {
-  const textParts = article.innerText
-    .split('\n')
-    .map((part) => part.trim())
+  const tweetTextNodes = article.querySelectorAll('[data-testid="tweetText"]');
+  const textParts = [...tweetTextNodes]
+    .map((node) => node.innerText.trim())
     .filter(Boolean);
+
+  if (!textParts.length) {
+    return '';
+  }
 
   return textParts.join(' ').toLowerCase();
 }
@@ -117,6 +133,95 @@ function shouldHideArticle(article, settings) {
   return matched;
 }
 
+function isAiEnabled(settings) {
+  return Boolean(settings.aiEnabled && settings.geminiApiKey && settings.interestPrompt);
+}
+
+function getTweetId(article) {
+  const permalink = article.querySelector('a[href*="/status/"]');
+  return permalink?.getAttribute('href') || getTweetText(article).slice(0, 160);
+}
+
+function getAiCacheKey(article) {
+  return `${getTweetId(article)}\n${getTweetText(article)}`;
+}
+
+function enqueueAiClassification(article, settings) {
+  if (!isAiEnabled(settings)) {
+    return;
+  }
+
+  const text = getTweetText(article);
+  if (!text) {
+    return;
+  }
+
+  const key = getAiCacheKey(article);
+  if (aiCache.has(key) || pendingAiItems.has(key)) {
+    return;
+  }
+
+  pendingAiItems.set(key, {
+    id: getTweetId(article),
+    text,
+  });
+  scheduleAiFlush();
+}
+
+function scheduleAiFlush() {
+  if (aiFlushTimer) {
+    return;
+  }
+
+  aiFlushTimer = window.setTimeout(() => {
+    aiFlushTimer = null;
+    flushAiQueue().catch((error) => {
+      console.error('X Focus Filter AI classification failed:', error);
+    });
+  }, 1200);
+}
+
+async function flushAiQueue() {
+  if (aiRequestInFlight || !isAiEnabled(currentSettings) || pendingAiItems.size === 0) {
+    return;
+  }
+
+  aiRequestInFlight = true;
+  const batchEntries = [...pendingAiItems.entries()].slice(0, 8);
+  batchEntries.forEach(([key]) => pendingAiItems.delete(key));
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'classifyTweets',
+      payload: {
+        apiKey: currentSettings.geminiApiKey,
+        interestPrompt: currentSettings.interestPrompt,
+        model: currentSettings.aiModel,
+        tweets: batchEntries.map(([, item]) => item),
+      },
+    });
+
+    if (!response?.ok) {
+      throw new Error(response?.error || 'Unknown AI classification error');
+    }
+
+    const resultMap = new Map(
+      (response.results || []).map((item) => [item.id, Boolean(item.keep)]),
+    );
+
+    batchEntries.forEach(([key, item]) => {
+      aiCache.set(key, resultMap.get(item.id) ?? true);
+    });
+
+    scanTimeline(currentSettings);
+  } finally {
+    aiRequestInFlight = false;
+    if (pendingAiItems.size > 0) {
+      scheduleAiFlush();
+    }
+  }
+}
+
 function applyArticleState(article, settings) {
   if (!(article instanceof HTMLElement)) {
     return;
@@ -132,9 +237,24 @@ function applyArticleState(article, settings) {
 
   if (shouldHideArticle(article, settings)) {
     hideTarget.setAttribute(HIDDEN_ATTR, 'true');
-  } else {
-    hideTarget.removeAttribute(HIDDEN_ATTR);
+    return;
   }
+
+  if (isAiEnabled(settings)) {
+    const aiDecision = aiCache.get(getAiCacheKey(article));
+    if (aiDecision === false) {
+      hideTarget.setAttribute(HIDDEN_ATTR, 'true');
+      return;
+    }
+
+    hideTarget.removeAttribute(HIDDEN_ATTR);
+    if (aiDecision === undefined) {
+      enqueueAiClassification(article, settings);
+    }
+    return;
+  }
+
+  hideTarget.removeAttribute(HIDDEN_ATTR);
 }
 
 function reconcileTimelineCells(settings) {
@@ -236,6 +356,8 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   };
 
   currentSettings = normalizeSettings(nextSettings);
+  pendingAiItems.clear();
+  aiCache.clear();
   scanTimeline(currentSettings);
 });
 

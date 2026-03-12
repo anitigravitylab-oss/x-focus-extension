@@ -15,6 +15,25 @@
         <span>フィルタリングを有効にする</span>
       </label>
 
+      <label class="toggle">
+        <input id="aiEnabled" type="checkbox" />
+        <span>Gemini AI 判定を使う</span>
+      </label>
+
+      <label class="field">
+        <span>Gemini APIキー</span>
+        <input id="geminiApiKey" type="password" placeholder="AIza..." />
+      </label>
+
+      <label class="field">
+        <span>興味・関心の説明</span>
+        <textarea
+          id="interestPrompt"
+          rows="5"
+          placeholder="知りたいトピックを自然文で書く&#10;例: AIプロダクト、個人開発、スタートアップ、LLMの実装知見"
+        ></textarea>
+      </label>
+
       <label class="field">
         <span>フィルターモード</span>
         <select id="mode">
@@ -39,6 +58,9 @@
 
       <button id="save" type="button">保存</button>
       <p id="status" class="status" aria-live="polite"></p>
+      <p class="help">
+        Gemini APIキーは拡張の設定に保存されます。公開リポジトリや共有PCでは使わないでください。
+      </p>
     </main>
 
     <script src="popup.js"></script>
