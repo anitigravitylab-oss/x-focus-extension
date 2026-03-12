@@ -42,6 +42,10 @@ function getResponseText(data) {
   return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
 
+function getUsageMetadata(data) {
+  return data?.usageMetadata ?? null;
+}
+
 async function classifyTweets({ apiKey, trainingExamples, model, tweets }) {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model || DEFAULT_MODEL)}:generateContent`,
@@ -99,7 +103,10 @@ async function classifyTweets({ apiKey, trainingExamples, model, tweets }) {
     throw new Error('Gemini API returned an empty response.');
   }
 
-  return JSON.parse(text);
+  return {
+    results: JSON.parse(text),
+    usageMetadata: getUsageMetadata(data),
+  };
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -108,7 +115,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   classifyTweets(message.payload)
-    .then((results) => sendResponse({ ok: true, results }))
+    .then((payload) => sendResponse({ ok: true, ...payload }))
     .catch((error) => sendResponse({ ok: false, error: error.message }));
 
   return true;

@@ -7,6 +7,16 @@ const DEFAULT_SETTINGS = {
   keywords: ['ai', 'llm', 'startup'],
   hidePromoted: true,
   trainingExamples: [],
+  hiddenHistory: [],
+  usageStats: {
+    promptTokenCount: 0,
+    candidatesTokenCount: 0,
+    thoughtsTokenCount: 0,
+    totalTokenCount: 0,
+    requestCount: 0,
+    estimatedCostUsd: 0,
+    lastUpdatedAt: '',
+  },
 };
 
 const STYLE_ID = 'x-focus-filter-style';
@@ -21,6 +31,7 @@ const CONTROL_LABELS = [
   'show posts',
 ];
 const TRAINING_LIMIT = 50;
+const HIDDEN_HISTORY_LIMIT = 120;
 
 let currentSettings = { ...DEFAULT_SETTINGS };
 let observer = null;
@@ -58,6 +69,11 @@ function normalizeSettings(settings) {
     keywords: normalizeKeywordList(settings?.keywords ?? DEFAULT_SETTINGS.keywords),
     hidePromoted: settings?.hidePromoted ?? DEFAULT_SETTINGS.hidePromoted,
     trainingExamples: normalizeTrainingExamples(settings?.trainingExamples ?? DEFAULT_SETTINGS.trainingExamples),
+    hiddenHistory: Array.isArray(settings?.hiddenHistory) ? settings.hiddenHistory.slice(0, HIDDEN_HISTORY_LIMIT) : [],
+    usageStats: {
+      ...DEFAULT_SETTINGS.usageStats,
+      ...(settings?.usageStats || {}),
+    },
   };
 }
 
@@ -326,14 +342,24 @@ function updateVisibleArticles(settings = currentSettings) {
 }
 
 function updateAiResults(results, batchEntries) {
-  const resultMap = new Map((results || []).map((item) => [item.id, Boolean(item.keep)]));
+  const resultMap = new Map((results || []).map((item) => [item.id, item]));
 
   batchEntries.forEach(([key, item]) => {
-    const keep = resultMap.get(item.id);
+    const result = resultMap.get(item.id);
+    const keep = result?.keep;
     aiCache.set(key, keep ?? true);
     const article = articleRegistry.get(key);
     if (article && document.contains(article)) {
       updateArticleVisibility(article, currentSettings);
+      if (keep === false) {
+        recordHiddenHistory({
+          text: getOriginalTweetText(article),
+          source: 'ai',
+          reason: String(result?.reason || 'Geminiが学習例に近いと判定'),
+        }).catch((error) => {
+          console.error('Failed to record hidden history:', error);
+        });
+      }
     }
   });
 }
@@ -397,12 +423,82 @@ async function flushAiQueue() {
     }
 
     updateAiResults(response.results, batchEntries);
+    await recordUsageStats(response.usageMetadata, currentSettings.aiModel);
   } finally {
     aiRequestInFlight = false;
     if (pendingAiItems.size > 0) {
       scheduleAiFlush();
     }
   }
+}
+
+function getModelPricing(model) {
+  if (model === 'gemini-2.5-flash') {
+    return {
+      inputUsdPerMillion: 0.3,
+      outputUsdPerMillion: 2.5,
+    };
+  }
+
+  if (model === 'gemini-2.5-pro') {
+    return {
+      inputUsdPerMillion: 1.25,
+      outputUsdPerMillion: 10,
+    };
+  }
+
+  return null;
+}
+
+async function recordUsageStats(usageMetadata, model) {
+  if (!usageMetadata) {
+    return;
+  }
+
+  const stored = await chrome.storage.sync.get(DEFAULT_SETTINGS);
+  const settings = normalizeSettings(stored);
+  const pricing = getModelPricing(model);
+  const promptTokenCount = Number(usageMetadata.promptTokenCount || 0);
+  const candidatesTokenCount = Number(usageMetadata.candidatesTokenCount || 0);
+  const thoughtsTokenCount = Number(usageMetadata.thoughtsTokenCount || 0);
+  const totalTokenCount = Number(usageMetadata.totalTokenCount || 0);
+  const estimatedCostUsd = pricing
+    ? ((promptTokenCount / 1_000_000) * pricing.inputUsdPerMillion) +
+      ((candidatesTokenCount / 1_000_000) * pricing.outputUsdPerMillion)
+    : 0;
+
+  const nextUsageStats = {
+    promptTokenCount: Number(settings.usageStats.promptTokenCount || 0) + promptTokenCount,
+    candidatesTokenCount: Number(settings.usageStats.candidatesTokenCount || 0) + candidatesTokenCount,
+    thoughtsTokenCount: Number(settings.usageStats.thoughtsTokenCount || 0) + thoughtsTokenCount,
+    totalTokenCount: Number(settings.usageStats.totalTokenCount || 0) + totalTokenCount,
+    requestCount: Number(settings.usageStats.requestCount || 0) + 1,
+    estimatedCostUsd: Number(settings.usageStats.estimatedCostUsd || 0) + estimatedCostUsd,
+    lastUpdatedAt: new Date().toISOString(),
+  };
+
+  await chrome.storage.sync.set({ usageStats: nextUsageStats });
+}
+
+async function recordHiddenHistory(entry) {
+  const text = String(entry?.text || '').trim();
+  if (!text) {
+    return;
+  }
+
+  const stored = await chrome.storage.sync.get(DEFAULT_SETTINGS);
+  const settings = normalizeSettings(stored);
+  const nextHistory = [
+    {
+      text,
+      source: entry.source || 'manual',
+      reason: String(entry.reason || '').trim(),
+      createdAt: new Date().toISOString(),
+    },
+    ...settings.hiddenHistory,
+  ].slice(0, HIDDEN_HISTORY_LIMIT);
+
+  await chrome.storage.sync.set({ hiddenHistory: nextHistory });
 }
 
 function closeReasonPanel(container) {
@@ -443,6 +539,12 @@ async function saveTrainingExample(article, reason) {
   await chrome.storage.sync.set({
     trainingExamples: nextExamples,
     aiEnabled: true,
+  });
+
+  await recordHiddenHistory({
+    text,
+    source: 'manual',
+    reason: reason.trim(),
   });
 
   return { ok: true };

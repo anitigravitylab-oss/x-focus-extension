@@ -101,6 +101,41 @@ button.secondary {
   color: #9ab0c7;
 }
 
+.history {
+  display: grid;
+  gap: 10px;
+}
+
+.history-item {
+  padding: 10px;
+  border: 1px solid rgba(110, 118, 125, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.history-meta {
+  margin-bottom: 6px;
+  color: #9ab0c7;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.history-text {
+  color: #f4f7fb;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.history-reason {
+  margin-top: 6px;
+  color: #9ab0c7;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
 .info,
 .help {
   margin: 10px 0 0;
