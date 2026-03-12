@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>X Focus Filter</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <h1>X Focus Filter</h1>
+
+      <label class="toggle">
+        <input id="enabled" type="checkbox" />
+        <span>Enable filtering</span>
+      </label>
+
+      <label class="field">
+        <span>Filter mode</span>
+        <select id="mode">
+          <option value="include">Keep posts matching these keywords</option>
+          <option value="exclude">Hide posts matching these keywords</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Keywords</span>
+        <textarea
+          id="keywords"
+          rows="8"
+          placeholder="One keyword per line&#10;ai&#10;startup&#10;openai"
+        ></textarea>
+      </label>
+
+      <label class="toggle">
+        <input id="hidePromoted" type="checkbox" />
+        <span>Hide promoted posts</span>
+      </label>
+
+      <button id="save" type="button">Save</button>
+      <p id="status" class="status" aria-live="polite"></p>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
