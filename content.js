@@ -8,6 +8,14 @@ const DEFAULT_SETTINGS = {
 const STYLE_ID = 'x-focus-filter-style';
 const PROCESSED_ATTR = 'data-x-focus-processed';
 const HIDDEN_ATTR = 'data-x-focus-hidden';
+const CONTROL_LABELS = [
+  '新しいおすすめを読み込む',
+  '新しいポストを表示',
+  'さらに表示',
+  'show more',
+  'show new items',
+  'show posts',
+];
 
 let currentSettings = { ...DEFAULT_SETTINGS };
 let observer = null;
@@ -50,6 +58,23 @@ function getHideTarget(article) {
 
 function hasTweetBody(article) {
   return Boolean(article.querySelector('[data-testid="tweetText"]'));
+}
+
+function isTimelineControlCell(element) {
+  if (!(element instanceof HTMLElement)) {
+    return false;
+  }
+
+  const text = element.innerText.toLowerCase();
+  return CONTROL_LABELS.some((label) => text.includes(label));
+}
+
+function getTweetArticleFromCell(cell) {
+  if (!(cell instanceof HTMLElement)) {
+    return null;
+  }
+
+  return cell.querySelector('article[data-testid="tweet"]');
 }
 
 function getTweetText(article) {
@@ -100,6 +125,11 @@ function applyArticleState(article, settings) {
   const hideTarget = getHideTarget(article);
   article.setAttribute(PROCESSED_ATTR, 'true');
 
+  if (isTimelineControlCell(hideTarget)) {
+    hideTarget.removeAttribute(HIDDEN_ATTR);
+    return;
+  }
+
   if (shouldHideArticle(article, settings)) {
     hideTarget.setAttribute(HIDDEN_ATTR, 'true');
   } else {
@@ -107,10 +137,31 @@ function applyArticleState(article, settings) {
   }
 }
 
-function scanTimeline(settings) {
+function reconcileTimelineCells(settings) {
   document
-    .querySelectorAll('article[data-testid="tweet"]')
-    .forEach((article) => applyArticleState(article, settings));
+    .querySelectorAll('div[data-testid="cellInnerDiv"]')
+    .forEach((cell) => {
+      if (!(cell instanceof HTMLElement)) {
+        return;
+      }
+
+      if (isTimelineControlCell(cell)) {
+        cell.removeAttribute(HIDDEN_ATTR);
+        return;
+      }
+
+      const article = getTweetArticleFromCell(cell);
+      if (!article) {
+        cell.removeAttribute(HIDDEN_ATTR);
+        return;
+      }
+
+      applyArticleState(article, settings);
+    });
+}
+
+function scanTimeline(settings) {
+  reconcileTimelineCells(settings);
 }
 
 async function loadSettings() {
@@ -135,9 +186,29 @@ function observeTimeline() {
           return;
         }
 
+        if (node.matches?.('div[data-testid="cellInnerDiv"]')) {
+          const article = getTweetArticleFromCell(node);
+          if (article) {
+            applyArticleState(article, currentSettings);
+          } else {
+            node.removeAttribute(HIDDEN_ATTR);
+          }
+        }
+
         if (node.matches?.('article[data-testid="tweet"]')) {
           applyArticleState(node, currentSettings);
         }
+
+        node
+          .querySelectorAll?.('div[data-testid="cellInnerDiv"]')
+          .forEach((cell) => {
+            const article = getTweetArticleFromCell(cell);
+            if (article) {
+              applyArticleState(article, currentSettings);
+            } else {
+              cell.removeAttribute(HIDDEN_ATTR);
+            }
+          });
 
         node
           .querySelectorAll?.('article[data-testid="tweet"]')
