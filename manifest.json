@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "X Focus Filter",
+  "name": "Xフォーカスフィルター",
   "version": "0.1.0",
-  "description": "Hide low-signal posts on x.com using keyword-based focus filters.",
+  "description": "x.comのタイムラインから、キーワード条件に合わない投稿を非表示にします。",
   "permissions": ["storage"],
   "host_permissions": ["https://x.com/*", "https://twitter.com/*"],
   "action": {
-    "default_title": "X Focus Filter",
+    "default_title": "Xフォーカスフィルター",
     "default_popup": "popup.html"
   },
   "content_scripts": [

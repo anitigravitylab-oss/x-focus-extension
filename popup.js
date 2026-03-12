@@ -38,15 +38,15 @@ async function saveSettings() {
   };
 
   await chrome.storage.sync.set(settings);
-  statusText.textContent = 'Saved. Reload x.com if the page is already open.';
+  statusText.textContent = '保存しました。x.com を開いている場合は再読み込みしてください。';
 }
 
 saveButton.addEventListener('click', () => {
   saveSettings().catch((error) => {
-    statusText.textContent = `Save failed: ${error.message}`;
+    statusText.textContent = `保存に失敗しました: ${error.message}`;
   });
 });
 
 loadSettings().catch((error) => {
-  statusText.textContent = `Load failed: ${error.message}`;
+  statusText.textContent = `読み込みに失敗しました: ${error.message}`;
 });
