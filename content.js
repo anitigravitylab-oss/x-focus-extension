@@ -74,12 +74,11 @@ function ensureStyle() {
     }
 
     [${ACTIONS_ATTR}] {
-      margin-top: 8px;
-      border: 1px solid rgba(110, 118, 125, 0.35);
-      border-radius: 12px;
-      padding: 10px;
-      background: rgba(15, 20, 25, 0.88);
-      color: #f7f9f9;
+      margin-top: 6px;
+      display: flex;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 8px;
       font-size: 13px;
     }
 
@@ -96,16 +95,16 @@ function ensureStyle() {
     }
 
     [${ACTIONS_ATTR}] button {
-      border: 0;
+      border: 1px solid rgba(110, 118, 125, 0.25);
       border-radius: 999px;
-      padding: 6px 12px;
+      padding: 6px 10px;
       cursor: pointer;
     }
 
     [${ACTIONS_ATTR}] .x-focus-hide {
-      background: #ff7a59;
-      color: #111;
-      font-weight: 700;
+      background: rgba(244, 33, 46, 0.1);
+      color: rgb(244, 33, 46);
+      font-weight: 600;
     }
 
     [${ACTIONS_ATTR}] .x-focus-save {
@@ -115,27 +114,45 @@ function ensureStyle() {
     }
 
     [${ACTIONS_ATTR}] .x-focus-cancel {
-      background: transparent;
+      background: rgba(255, 255, 255, 0.02);
       color: #c7d1db;
-      border: 1px solid rgba(110, 118, 125, 0.35);
+    }
+
+    [${ACTIONS_ATTR}] .x-focus-editor {
+      width: min(360px, 100%);
+      border: 1px solid rgba(110, 118, 125, 0.28);
+      border-radius: 16px;
+      padding: 12px;
+      background: rgba(15, 20, 25, 0.96);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+      color: #f7f9f9;
+    }
+
+    [${ACTIONS_ATTR}] .x-focus-editor-title {
+      margin-bottom: 8px;
+      color: #f7f9f9;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
     }
 
     [${ACTIONS_ATTR}] textarea {
       width: 100%;
-      min-height: 88px;
-      margin-top: 8px;
+      min-height: 84px;
       border: 1px solid rgba(110, 118, 125, 0.35);
-      border-radius: 10px;
+      border-radius: 12px;
       box-sizing: border-box;
-      background: rgba(0, 0, 0, 0.25);
+      background: rgba(255, 255, 255, 0.03);
       color: #f7f9f9;
       padding: 10px;
       resize: vertical;
     }
 
     [${ACTIONS_ATTR}] .x-focus-status {
-      margin-top: 8px;
+      flex-basis: 100%;
+      text-align: right;
       color: #8b98a5;
+      font-size: 12px;
     }
   `;
   document.documentElement.appendChild(style);
@@ -408,8 +425,12 @@ function showStatus(container, message) {
 
 async function saveTrainingExample(article, reason) {
   const text = getOriginalTweetText(article);
-  if (!text || !reason.trim()) {
-    return false;
+  if (!reason.trim()) {
+    return { ok: false, error: '理由を入力してください。' };
+  }
+
+  if (!text) {
+    return { ok: false, error: '投稿本文が取得できませんでした。テキスト投稿で試してください。' };
   }
 
   const stored = await chrome.storage.sync.get(DEFAULT_SETTINGS);
@@ -424,7 +445,7 @@ async function saveTrainingExample(article, reason) {
     aiEnabled: true,
   });
 
-  return true;
+  return { ok: true };
 }
 
 function openReasonPanel(article, container) {
@@ -432,9 +453,19 @@ function openReasonPanel(article, container) {
 
   const editor = document.createElement('div');
   editor.className = 'x-focus-editor';
+  editor.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+
+  const title = document.createElement('div');
+  title.className = 'x-focus-editor-title';
+  title.textContent = 'なぜこの投稿を消したいですか？';
 
   const textarea = document.createElement('textarea');
   textarea.placeholder = 'なぜ消したいかを書く。例: 芸能ゴシップで興味がない、煽りが強い、実用情報がない';
+  textarea.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
 
   const row = document.createElement('div');
   row.className = 'x-focus-row';
@@ -449,14 +480,16 @@ function openReasonPanel(article, container) {
   cancelButton.className = 'x-focus-cancel';
   cancelButton.textContent = 'キャンセル';
 
-  saveButton.addEventListener('click', async () => {
+  saveButton.addEventListener('click', async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     saveButton.disabled = true;
     cancelButton.disabled = true;
 
     try {
-      const ok = await saveTrainingExample(article, textarea.value);
-      if (!ok) {
-        showStatus(container, '理由を入力してください。');
+      const result = await saveTrainingExample(article, textarea.value);
+      if (!result.ok) {
+        showStatus(container, result.error);
         saveButton.disabled = false;
         cancelButton.disabled = false;
         return;
@@ -476,12 +509,14 @@ function openReasonPanel(article, container) {
     }
   });
 
-  cancelButton.addEventListener('click', () => {
+  cancelButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     closeReasonPanel(container);
   });
 
   row.append(saveButton, cancelButton);
-  editor.append(textarea, row);
+  editor.append(title, textarea, row);
   container.appendChild(editor);
   textarea.focus();
 }
@@ -493,6 +528,9 @@ function injectTrainingControls(article) {
 
   const actionBox = document.createElement('div');
   actionBox.setAttribute(ACTIONS_ATTR, 'true');
+  actionBox.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
 
   const row = document.createElement('div');
   row.className = 'x-focus-row';
@@ -501,7 +539,11 @@ function injectTrainingControls(article) {
   hideButton.type = 'button';
   hideButton.className = 'x-focus-hide';
   hideButton.textContent = 'この投稿を隠す';
-  hideButton.addEventListener('click', () => openReasonPanel(article, actionBox));
+  hideButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openReasonPanel(article, actionBox);
+  });
 
   row.appendChild(hideButton);
   actionBox.appendChild(row);

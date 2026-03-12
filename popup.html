@@ -9,46 +9,56 @@
   <body>
     <main class="popup">
       <h1>Xフォーカスフィルター</h1>
+      <p class="lead">見たくない投稿を理由付きで教えると、Gemini が似た投稿を隠します。</p>
 
-      <label class="toggle">
-        <input id="enabled" type="checkbox" />
-        <span>フィルタリングを有効にする</span>
-      </label>
+      <section class="section">
+        <p class="section-title">Basic</p>
+        <label class="toggle">
+          <input id="enabled" type="checkbox" />
+          <span>フィルタリングを有効にする</span>
+        </label>
 
-      <label class="toggle">
-        <input id="aiEnabled" type="checkbox" />
-        <span>Gemini AI 判定を使う</span>
-      </label>
+        <label class="toggle">
+          <input id="aiEnabled" type="checkbox" />
+          <span>Gemini AI 判定を使う</span>
+        </label>
 
-      <label class="field">
-        <span>Gemini APIキー</span>
-        <input id="geminiApiKey" type="password" placeholder="AIza..." />
-      </label>
+        <label class="field">
+          <span>Gemini APIキー</span>
+          <input id="geminiApiKey" type="password" placeholder="AIza..." />
+        </label>
+      </section>
 
-      <p class="info" id="trainingCount">学習例: 0件</p>
-      <button id="clearTraining" type="button" class="secondary">学習例をリセット</button>
+      <section class="section">
+        <p class="section-title">Training</p>
+        <p class="info" id="trainingCount">学習例: 0件</p>
+        <button id="clearTraining" type="button" class="secondary">学習例をリセット</button>
+      </section>
 
-      <label class="field">
-        <span>フィルターモード</span>
-        <select id="mode">
-          <option value="include">このキーワードに一致する投稿だけ残す</option>
-          <option value="exclude">このキーワードに一致する投稿を隠す</option>
-        </select>
-      </label>
+      <section class="section">
+        <p class="section-title">Keyword</p>
+        <label class="field">
+          <span>フィルターモード</span>
+          <select id="mode">
+            <option value="include">このキーワードに一致する投稿だけ残す</option>
+            <option value="exclude">このキーワードに一致する投稿を隠す</option>
+          </select>
+        </label>
 
-      <label class="field">
-        <span>キーワード</span>
-        <textarea
-          id="keywords"
-          rows="8"
-          placeholder="1行に1キーワード&#10;ai&#10;startup&#10;openai"
-        ></textarea>
-      </label>
+        <label class="field">
+          <span>キーワード</span>
+          <textarea
+            id="keywords"
+            rows="8"
+            placeholder="1行に1キーワード&#10;ai&#10;startup&#10;openai"
+          ></textarea>
+        </label>
 
-      <label class="toggle">
-        <input id="hidePromoted" type="checkbox" />
-        <span>広告投稿を隠す</span>
-      </label>
+        <label class="toggle">
+          <input id="hidePromoted" type="checkbox" />
+          <span>広告投稿を隠す</span>
+        </label>
+      </section>
 
       <button id="save" type="button">保存</button>
       <p id="status" class="status" aria-live="polite"></p>
