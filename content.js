@@ -37,11 +37,19 @@ function ensureStyle() {
   const style = document.createElement('style');
   style.id = STYLE_ID;
   style.textContent = `
-    article[${HIDDEN_ATTR}="true"] {
+    [${HIDDEN_ATTR}="true"] {
       display: none !important;
     }
   `;
   document.documentElement.appendChild(style);
+}
+
+function getHideTarget(article) {
+  return article.closest('div[data-testid="cellInnerDiv"]') || article;
+}
+
+function hasTweetBody(article) {
+  return Boolean(article.querySelector('[data-testid="tweetText"]'));
 }
 
 function getTweetText(article) {
@@ -59,6 +67,10 @@ function isPromoted(article) {
 
 function shouldHideArticle(article, settings) {
   if (!settings.enabled) {
+    return false;
+  }
+
+  if (!hasTweetBody(article)) {
     return false;
   }
 
@@ -85,12 +97,13 @@ function applyArticleState(article, settings) {
     return;
   }
 
+  const hideTarget = getHideTarget(article);
   article.setAttribute(PROCESSED_ATTR, 'true');
 
   if (shouldHideArticle(article, settings)) {
-    article.setAttribute(HIDDEN_ATTR, 'true');
+    hideTarget.setAttribute(HIDDEN_ATTR, 'true');
   } else {
-    article.removeAttribute(HIDDEN_ATTR);
+    hideTarget.removeAttribute(HIDDEN_ATTR);
   }
 }
 
