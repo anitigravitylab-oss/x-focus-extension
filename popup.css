@@ -63,12 +63,20 @@ button {
   cursor: pointer;
 }
 
+button.secondary {
+  margin-bottom: 14px;
+  background: transparent;
+  color: #f4f7fb;
+  border: 1px solid #2e3a45;
+}
+
 .status {
   min-height: 20px;
   margin: 10px 0 0;
   color: #9ab0c7;
 }
 
+.info,
 .help {
   margin: 10px 0 0;
   color: #9ab0c7;
